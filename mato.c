@@ -10,6 +10,7 @@
 #define ROM_CHARSET ((unsigned char*)0x8000)
 #define CHARSET     ((unsigned char*)0x1800)
 #define CHARSET_MEM 0x1800
+#define KEYBOARD  (*(unsigned char*)0x00C5)
 
 #pragma section( charset, 0)
 #pragma region( charset, 0x1800, 0x2000, , , {charset} )
@@ -48,9 +49,6 @@ unsigned char food_x, food_y;
 #define CH_HEAD_LEFT  172
 #define CH_HEAD_RIGHT 173
 #define CH_BODY       174
-
-#define CHARSET ((unsigned char*)0x1800)
-#define KEYBOARD  (*(unsigned char*)0x00C5)
 
 void handle_input();
 

@@ -1,6 +1,7 @@
 #include <conio.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 
 #define SCREEN ((unsigned char*)0x1E00)
 #define COLOR  ((unsigned char*)0x9600)
@@ -49,21 +50,16 @@ unsigned char food_x, food_y;
 #define CH_BODY       174
 
 #define CHARSET ((unsigned char*)0x1800)
-
-#define JIFFY_LOW  (*(unsigned char*)0x00A0)
-#define JIFFY_MID  (*(unsigned char*)0x00A1)
-#define JIFFY_HIGH  (*(unsigned char*)0x00A2)
-
 #define KEYBOARD  (*(unsigned char*)0x00C5)
 
 void handle_input();
 
 void wait_frames(unsigned char frames) {
-    volatile unsigned char start = JIFFY_HIGH;
-    volatile unsigned char cur=start;
-    while (cur - start < frames) {
+    clock_t start=clock();
+    clock_t cur=start;
+    while (cur-start < frames) {
       handle_input();
-      cur=JIFFY_HIGH;
+      cur = clock();
     }
 }
 
@@ -130,31 +126,29 @@ void init_charset() {
     set_charset(CHARSET_MEM);
 }
 
-void draw_board() {
-    for (int i = 0; i < WIDTH * HEIGHT; i++) {
-        SCREEN[i] = ' ';
-        COLOR[i] = C_BG;
-    }
-
-    for (int x = 0; x < WIDTH; x++) {
-        put_cell(x, 0, '#', C_WALL);
-        put_cell(x, HEIGHT-1, '#', C_WALL);
-    }
-    for (int y = 0; y < HEIGHT; y++) {
-        put_cell(0, y, '#', C_WALL);
-        put_cell(WIDTH-1, y, '#', C_WALL);
-    }
-
+void draw_portals() {
     put_cell(WIDTH/2, 0, 0x2A, C_PORT);
     put_cell(WIDTH/2, HEIGHT-1, 0x2A, C_PORT);
     put_cell(0, HEIGHT/2, 0x2A, C_PORT);
     put_cell(WIDTH-1, HEIGHT/2, 0x2A, C_PORT);
 }
 
-void spawn_food() {
-    food_x = (rand() % (WIDTH-2)) + 1;
-    food_y = (rand() % (HEIGHT-2)) + 1;
-    put_cell(food_x, food_y, 0x24, C_FOOD);
+void draw_board() {
+    for (int i = 0; i < WIDTH * HEIGHT; i++) {
+        SCREEN[i] = ' ';
+        COLOR[i] = C_BG;
+    }
+
+    // We use 22x22 so we can do all walls in one loop
+    for (unsigned char i = 0; i < WIDTH; i++) {
+        put_cell(i, 0, '#', C_WALL);
+        put_cell(i, HEIGHT-1, '#', C_WALL);
+        put_cell(0, i, '#', C_WALL);
+        put_cell(WIDTH-1, i, '#', C_WALL);
+    }
+
+    draw_portals();
+
 }
 
 void reset_border() {
@@ -186,8 +180,6 @@ void handle_input() {
    if (c == 41 && dir != 0) dir = 1;
    if (c == 17 && dir != 3) dir = 2;
    if (c == 18 && dir != 2) dir = 3;
-
-//   SCREEN[9]=c;
 }
 
 void print_stats() {
@@ -214,9 +206,28 @@ void game_over() {
     }
 }
 
+char check_overlap(unsigned char x, unsigned char y) {
+    for (int i = 0; i < length; i++) {
+        if (snake_x[i] == x && snake_y[i] == y) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+void spawn_food() {
+    do {
+     food_x = (rand() % (WIDTH-2)) + 1;
+     food_y = (rand() % (HEIGHT-2)) + 1;
+    } while (check_overlap(food_x, food_y)==1);
+    put_cell(food_x, food_y, 0x24, C_FOOD);
+}
+
 void snake_eats() {
     score+=length;
     length++;
+    if (length>MAX_LEN)
+       length=MAX_LEN;
     spawn_food();
     foods++;
     if (foods>10) {
@@ -237,20 +248,17 @@ int move_snake() {
     if (dir == 3) nx++;
 
     // portals
-    if (ny == 0 && nx == WIDTH/2) ny = HEIGHT-1;
-    else if (ny == HEIGHT-1 && nx == WIDTH/2) ny = 0;
-    else if (nx == 0 && ny == HEIGHT/2) nx = WIDTH-1;
-    else if (nx == WIDTH-1 && ny == HEIGHT/2) nx = 0;
+    if (ny == 0 && nx == WIDTH/2) ny = HEIGHT-2;
+    else if (ny == HEIGHT-1 && nx == WIDTH/2) ny = 1;
+    else if (nx == 0 && ny == HEIGHT/2) nx = WIDTH-2;
+    else if (nx == WIDTH-1 && ny == HEIGHT/2) nx = 1;
 
     if (SCREEN[ny * WIDTH + nx] == '#') {
         return 1;
     }
 
-    for (int i = 0; i < length; i++) {
-        if (snake_x[i] == nx && snake_y[i] == ny) {
-            return 1;
-        }
-    }
+    if (check_overlap(nx, ny)==1)
+        return 1;
 
     for (int i = length; i > 0; i--) {
         snake_x[i] = snake_x[i-1];

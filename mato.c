@@ -9,8 +9,14 @@
 #define BORDER (*(unsigned char*)0x900F)
 #define ROM_CHARSET ((unsigned char*)0x8000)
 #define CHARSET     ((unsigned char*)0x1800)
-#define CHARSET_MEM 0x1800
+const unsigned int CHARSET_MEM = 0x1800;
 #define KEYBOARD  (*(unsigned char*)0x00C5)
+
+unsigned char * const SND1 = (unsigned char*)0x900A;
+unsigned char * const SND2 = (unsigned char*)0x900B;
+unsigned char * const SND3 = (unsigned char*)0x900C;
+unsigned char * const SND4 = (unsigned char*)0x900D;
+unsigned char * const SNDV = (unsigned char*)0x900E;
 
 #pragma section( charset, 0)
 #pragma region( charset, 0x1800, 0x2000, , , {charset} )
@@ -52,6 +58,12 @@ unsigned char food_x, food_y;
 
 void handle_input();
 
+unsigned char getkey()
+{
+    volatile unsigned char c=KEYBOARD;
+    return c;
+}
+
 void wait_frames(unsigned char frames) {
     clock_t start=clock();
     clock_t cur=start;
@@ -61,10 +73,39 @@ void wait_frames(unsigned char frames) {
     }
 }
 
-unsigned char getkey()
-{
-    volatile unsigned char c=KEYBOARD;
-    return c;
+void delay(unsigned int v) {
+    for (unsigned int i=0;i++;i<v) {
+      getkey();
+    }
+}
+
+void sound_eat() {
+    *SNDV=15;
+    *SND2=128;
+    for (unsigned char i=0;i++;i<127) {
+       *SND4=128+i;
+       delay(440);
+    }
+    wait_frames(2);
+    *SND4=0;
+    *SND2=0;
+    *SNDV=0;
+}
+
+void sound_die() {
+    *SNDV=15;
+    *SND1=140;
+    for (unsigned char i=0;i++;i<127) {
+       *SND3=255-i;
+       *SND4=128+i;
+       wait_frames(2);
+       //delay(640);
+    }
+    wait_frames(4);
+    *SND3=0;
+    *SND4=0;
+    *SND1=0;
+    *SNDV=0;
 }
 
 void set_charset(unsigned int addr) {
@@ -233,6 +274,7 @@ void snake_eats() {
       foods=0;
     }
     // flash_border_food();
+    sound_eat();
     print_stats();
 }
 
@@ -252,11 +294,14 @@ int move_snake() {
     else if (nx == WIDTH-1 && ny == HEIGHT/2) nx = 1;
 
     if (SCREEN[ny * WIDTH + nx] == '#') {
+        sound_die();
         return 1;
     }
 
-    if (check_overlap(nx, ny)==1)
+    if (check_overlap(nx, ny)==1) {
+        sound_die();
         return 1;
+    }
 
     for (int i = length; i > 0; i--) {
         snake_x[i] = snake_x[i-1];

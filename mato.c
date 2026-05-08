@@ -52,11 +52,21 @@ unsigned int level = 1;
 
 unsigned char food_x, food_y;
 
+#ifdef CUSTOM_CHARSET
+#define CH_FOOD       36
 #define CH_HEAD_UP    170
 #define CH_HEAD_DOWN  171
 #define CH_HEAD_LEFT  172
 #define CH_HEAD_RIGHT 173
 #define CH_BODY       174
+#else
+#define CH_FOOD       83
+#define CH_HEAD_UP    81
+#define CH_HEAD_DOWN  81
+#define CH_HEAD_LEFT  81
+#define CH_HEAD_RIGHT 81
+#define CH_BODY       81
+#endif
 
 void handle_input();
 
@@ -295,7 +305,7 @@ void spawn_food() {
      food_x = (rand() % (WIDTH-2)) + 1;
      food_y = (rand() % (HEIGHT-2)) + 1;
     } while (check_overlap(food_x, food_y)==1);
-    put_cell(food_x, food_y, 0x24, C_FOOD);
+    put_cell(food_x, food_y, CH_FOOD, C_FOOD);
 }
 
 void snake_eats() {

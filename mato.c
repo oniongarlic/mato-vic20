@@ -264,7 +264,6 @@ void handle_input() {
     if (j & 8 && dir != 3) dir = 2;
     if (j & 1 && dir != 2) dir = 3;
    }
-   print_c(j, 0, 0);
 }
 
 void print_stats() {

@@ -18,9 +18,11 @@ unsigned char * const SND3 = (unsigned char*)0x900C;
 unsigned char * const SND4 = (unsigned char*)0x900D;
 unsigned char * const SNDV = (unsigned char*)0x900E;
 
+#ifdef CUSTOM_CHARSET
 #pragma section( charset, 0)
 #pragma region( charset, 0x1800, 0x2000, , , {charset} )
 unsigned char vic_charset[2048];
+#endif
 
 #define WIDTH 22
 #define HEIGHT 22
@@ -62,6 +64,28 @@ unsigned char getkey()
 {
     volatile unsigned char c=KEYBOARD;
     return c;
+}
+
+unsigned char getjoystick()
+{
+  return __asm {
+   lda $911f
+   eor #$ff
+   and #$3c
+   ldx #$7f
+   sei
+   stx $9122
+   ldx $9120
+   bmi R1
+   ora #$02
+R1:
+   ldx #$ff
+   stx $9122
+   cli
+   lsr
+   sta accu
+   rts
+ };
 }
 
 void wait_frames(unsigned char frames) {
@@ -137,19 +161,24 @@ void print_c(unsigned int v, unsigned char x, unsigned char y) {
 }
 
 void copy_charset() {
+#ifdef CUSTOM_CHARSET
     for (unsigned int i = 0; i < 2048; i++) {
         CHARSET[i] = ROM_CHARSET[i];
     }
+#endif
 }
 
 void define_char(unsigned char code, unsigned char *data) {
+#ifdef CUSTOM_CHARSET
     unsigned char *ptr = CHARSET + (code * 8);
     for (int i = 0; i < 8; i++) {
         ptr[i] = data[i];
     }
+#endif
 }
 
 void init_charset() {
+#ifdef CUSTOM_CHARSET
     unsigned char up[8] =   {60,66,129,165,129,129,189,126};
     unsigned char down[8] = {126,189,129,129,165,129,66,60};
     unsigned char left[8] = {62,65,147,131,131,147,65,62};
@@ -163,6 +192,7 @@ void init_charset() {
     define_char(CH_BODY, body);
 
     set_charset(CHARSET_MEM);
+#endif
 }
 
 void draw_portals() {
@@ -211,14 +241,20 @@ void flash_border_food() {
 
 void handle_input() {
    unsigned char c=getkey();
+   unsigned char j=getjoystick();
 
-   if (c==64)
-     return;
-
-   if (c == 9 && dir != 1) dir = 0;
-   if (c == 41 && dir != 0) dir = 1;
-   if (c == 17 && dir != 3) dir = 2;
-   if (c == 18 && dir != 2) dir = 3;
+   if (c!=64) {
+    if (c == 9 && dir != 1) dir = 0;
+    if (c == 41 && dir != 0) dir = 1;
+    if (c == 17 && dir != 3) dir = 2;
+    if (c == 18 && dir != 2) dir = 3;
+   } else {
+    if (j & 2 && dir != 1) dir = 0;
+    if (j & 4 && dir != 0) dir = 1;
+    if (j & 8 && dir != 3) dir = 2;
+    if (j & 1 && dir != 2) dir = 3;
+   }
+   print_c(j, 0, 0);
 }
 
 void print_stats() {
@@ -282,10 +318,10 @@ int move_snake() {
     unsigned char nx = snake_x[0];
     unsigned char ny = snake_y[0];
 
-    if (dir == 0) ny--;
-    if (dir == 1) ny++;
-    if (dir == 2) nx--;
-    if (dir == 3) nx++;
+    if (dir == 0) ny--; // up
+    if (dir == 1) ny++; // down
+    if (dir == 2) nx--; // left
+    if (dir == 3) nx++; // right
 
     // portals
     if (ny == 0 && nx == WIDTH/2) ny = HEIGHT-2;
